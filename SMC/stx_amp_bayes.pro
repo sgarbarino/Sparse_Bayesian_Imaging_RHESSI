@@ -215,6 +215,48 @@ function stx_amp_bayes, type, ampobs, sigamp, FOV=fov, N_PARTICLES=N_particles, 
     par_s[k,2,*] = ((par_s[k,2,*] mod (180)) + 180) mod (180) 
  endfor
 
+ ;2) if cerberus, remove the ambiguity related to the simmetry of the problem by 
+ ; forcing assignment of one of the two possible (symmetric) configurations
+  if cerberus eq 1 then begin
+
+    ; Identify the two sources via clustering on the fluxes
+    tmp_par = par_s[*,[5],*]  
+    par = reform([(tmp_par[0,*,*]), (tmp_par[1,*,*])])   
+    result = kmeans_cluster(par, k = 2, initial = 'random')  
+    ;iplot, par,  LINESTYLE = 6, SYM_INDEX = 4
+    
+    par_complete = [reform(par_s[0,*,*]), reform(par_s[1,*,*])]
+    config_0 = par_complete[*,where(result.clusters eq 0)]
+    config_1 = par_complete[*,where(result.clusters eq 1)]
+    
+    ; Switch flux and fwhm in one of the two sources  
+    tmp = config_1
+    config_1[5,*] = tmp[12,*]
+    config_1[12,*] = tmp[5,*]
+    config_1[4,*] = tmp[11,*]
+    config_1[11,*] = tmp[4,*]
+    
+    ; Merge the two configurations
+    config = transpose([transpose(config_0), transpose(config_1)])
+    
+    ; Re-assign par_s
+    par_s[0,*,*] = config[0:6,*]
+    par_s[1,*,*] = config[7:13,*]
+ 
+    ; Re-assign smcsources
+    smcsources[0].srcx = mean(par_s[0,0,*])
+    smcsources[0].srcy = mean(par_s[0,1,*])
+    smcsources[0].srcflux = mean(par_s[0,5,*])
+    smcsources[0].srcfwhm = mean(par_s[0,4,*])
+    
+    smcsources[1].srcx = mean(par_s[1,0,*])
+    smcsources[1].srcy = mean(par_s[1,1,*])
+    smcsources[1].srcflux = mean(par_s[1,5,*])
+    smcsources[1].srcfwhm = mean(par_s[1,4,*])
+ 
+    endif
+
+
 
    if phase eq 0 and cerberus eq 0 then begin
      dimensions=size(par_s)
